@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Altair HyperMesh Tcl Automation Studio | CAE Engineering IDE</title>
+  <meta name="description" content="Professional CAE Engineering Automation Environment for Altair HyperMesh & HyperWorks (2017-2024). Generates modular Tcl/Tk procedures for Crash, NVH, Durability, Aero, CFD, and Topology optimization.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+</head>
+<body>
+
+  <!-- 1. Top Application Bar -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">
+        <img src="assets/logo.png" alt="HyperMesh Tcl Automation Logo" class="brand-logo-img">
+      </div>
+      <div class="brand-title">
+        <span>HyperMesh Tcl Automation Studio</span>
+        <span class="brand-version-badge">HW 2017–2024 PRO</span>
+      </div>
+    </div>
+
+    <!-- Center / Right Top Actions -->
+    <div class="header-actions">
+      <!-- Quick Preset Selector -->
+      <div class="preset-select-wrapper">
+        <select id="presetSelect" aria-label="Load CAE Preset">
+          <option value="" disabled selected>⚡ Load CAE Preset...</option>
+        </select>
+      </div>
+
+      <button id="btnManagePresets" class="btn btn-secondary btn-sm" title="Manage Custom Presets">
+        📁 Presets
+      </button>
+
+      <button id="btnBatchRunner" class="btn btn-outline btn-sm" title="Generate Batch Runner">
+        ⚡ Batch Runner
+      </button>
+
+      <button id="btnCopy" class="btn btn-secondary btn-sm" title="Copy Tcl Script to Clipboard">
+        📋 Copy Tcl
+      </button>
+
+      <button id="btnDownloadTcl" class="btn btn-primary btn-sm" title="Download Generated .tcl Script">
+        📥 Export .tcl
+      </button>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Real Theme Toggle -->
+      <button id="btnThemeToggle" class="btn btn-secondary btn-sm btn-icon-only" title="Toggle Dark / Light Theme" aria-label="Toggle Theme">
+        🌙
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Primary Ribbon Toolbar & Status Ribbon -->
+  <div class="app-toolbar">
+    <div class="toolbar-group">
+      <span class="context-tag">SUBDOMAIN: <strong id="lblActiveDomain">Crash &amp; Safety</strong></span>
+      <span class="context-tag">SOLVER: <strong id="lblActiveSolver">LS-DYNA</strong></span>
+      <span class="context-tag">UNITS: <strong id="lblActiveUnits">mm-ms-kg-kN</strong></span>
+    </div>
+    <div class="toolbar-group">
+      <span class="context-tag">STATUS: <strong style="color:var(--status-pass);">READY</strong></span>
+      <span class="context-tag">TARGET: <strong>Altair HyperMesh / hmbatch</strong></span>
+    </div>
+  </div>
+
+  <!-- 3. Main Engineering IDE Workspace (3-Column Desktop Grid) -->
+  <main class="app-workspace">
+    
+    <!-- LEFT PANEL: Subdomain Navigator -->
+    <aside class="sidebar-container" aria-label="CAE Subdomain Selection">
+      <div class="sidebar-header">
+        <span>CAE Subdomains</span>
+        <span style="font-family:'Fira Code'; font-size:0.65rem;">(7 DOMAINS)</span>
+      </div>
+
+      <nav id="subdomainChips" class="subdomain-nav-list">
+        <!-- Subdomain chips dynamically populated by JavaScript -->
+      </nav>
+
+      <div class="sidebar-footer-box">
+        <h4>HyperMesh Version Support</h4>
+        <p style="font-size:0.68rem; color:var(--text-muted);">
+          Compatible with Altair HyperWorks &amp; HyperMesh Classic/Desktop versions <strong>2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024</strong>.
+        </p>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: Configuration & Quality Inspector -->
+    <section class="config-inspector-container">
+      
+      <!-- Tabs Navigation Bar -->
+      <nav class="inspector-tabs-bar" aria-label="Configuration Sections">
+        <button class="nav-tab-btn active" data-tab="solver">⚙️ Solver &amp; Env</button>
+        <button class="nav-tab-btn" data-tab="geom">📐 CAD Prep</button>
+        <button class="nav-tab-btn" data-tab="mesh">🕸️ Meshing &amp; Washers</button>
+        <button class="nav-tab-btn" data-tab="quality">🛡️ Quality Criteria</button>
+        <button class="nav-tab-btn" data-tab="connectors">🔗 Connectors</button>
+        <button class="nav-tab-btn" data-tab="props">🧱 Material &amp; Props</button>
+        <button class="nav-tab-btn" data-tab="procs">🧩 Proc Pipeline</button>
+      </nav>
+
+      <!-- Scrollable Form Inspector -->
+      <div class="inspector-scroll-body">
+
+        <!-- TAB 1: SOLVER & SESSION -->
+        <div id="tab_solver" class="tab-section active">
+          <div class="section-header-row">
+            <h2 class="section-header-title">⚙️ Solver Profile &amp; Session Configuration</h2>
+            <p class="section-header-desc">Define solver target deck, unit system consistency, and file system paths.</p>
+          </div>
+
+          <div class="eng-form-grid">
+            <div class="eng-form-group">
+              <label class="eng-label" for="solverSelect">Target Solver Profile</label>
+              <select id="solverSelect" class="form-select" data-bind="solver">
+                <!-- Injected based on subdomain -->
+              </select>
+            </div>
+
+            <div class="eng-form-group">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                <label class="eng-label" for="unitSystemInput" style="margin-bottom:0;">Unit System Standard</label>
+                <button type="button" id="btnOpenCustomUnits" class="btn-text-link" title="Open Custom CAE Unit System Builder">⚙️ Custom Units</button>
+              </div>
+              <select id="unitSystemInput" class="form-select" data-bind="unitSystem">
+                <option value="mm_t_s_N">mm - t - s - N (Standard NVH / OptiStruct / Abaqus: MPa, t/mm³)</option>
+                <option value="mm_ms_kg_kN">mm - ms - kg - kN (Crash / LS-DYNA / Radioss: GPa, kg/mm³)</option>
+                <option value="m_kg_s_N">m - kg - s - N (SI Standard / Thermal / CFD: Pa, kg/m³)</option>
+                <option value="mm_kg_s_mN">mm - kg - s - mN (Electronics / Micro-mechanics: kPa, kg/mm³)</option>
+                <option value="in_lb_s_lbf">in - slinch - s - lbf (Imperial Aero / US Customary: psi, slinch/in³)</option>
+                <option value="custom">⚙️ Custom CAE Unit System...</option>
+              </select>
+            </div>
+
+            <div class="eng-form-group full-width">
+              <label class="eng-label" for="cadPathInput">
+                CAD Geometry Input Path
+                <span class="unit-badge">.stp, .iges, .catpart, .x_t</span>
+              </label>
+              <input type="text" id="cadPathInput" class="form-control" data-bind="cadPath" placeholder="C:/CAE_Projects/Part.stp">
+            </div>
+
+            <div class="eng-form-group full-width">
+              <label class="eng-label" for="exportPathInput">
+                Solver Deck Export Destination
+                <span class="unit-badge">.fem, .k, .inp, .rad, .cdb</span>
+              </label>
+              <input type="text" id="exportPathInput" class="form-control" data-bind="exportPath" placeholder="C:/CAE_Projects/Output.fem">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: CAD & GEOMETRY CLEANUP -->
+        <div id="tab_geom" class="tab-section">
+          <div class="section-header-row">
+            <h2 class="section-header-title">📐 CAD Preparation &amp; Mid-Surfacing</h2>
+            <p class="section-header-desc">Surface edge stitching, minor feature defeaturing, and mid-surface extraction.</p>
+          </div>
+
+          <div class="eng-form-grid">
+            <div class="eng-form-group">
+              <label class="eng-label" for="stitchTolInput">
+                Stitch Tolerance <span class="unit-badge" data-unit-type="length">mm</span>
+              </label>
+              <input type="number" step="0.01" id="stitchTolInput" class="form-control" data-bind="stitchTol">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="minPinholeDiaInput">
+                Defeature Holes &lt; <span class="unit-badge" data-unit-type="length">mm dia</span>
+              </label>
+              <input type="number" step="0.5" id="minPinholeDiaInput" class="form-control" data-bind="minPinholeDia">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="minFilletRadiusInput">
+                Suppress Fillets &lt; <span class="unit-badge" data-unit-type="length">mm radius</span>
+              </label>
+              <input type="number" step="0.2" id="minFilletRadiusInput" class="form-control" data-bind="minFilletRadius">
+            </div>
+
+            <div class="eng-form-group full-width">
+              <div class="eng-toggle-card">
+                <div class="eng-toggle-header">
+                  <span class="eng-toggle-title">📑 Extract Mid-Surface Automatically</span>
+                  <label class="switch">
+                    <input type="checkbox" id="extractMidsurfaceChk" data-bind="extractMidsurface">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="eng-toggle-body">
+                  <label class="eng-label" for="midsurfaceMethodSelect">Extraction Method</label>
+                  <select id="midsurfaceMethodSelect" class="form-select" data-bind="midsurfaceMethod">
+                    <option value="Skin Mid-Surface">Skin Mid-Surface (Sheetmetal / Stampings)</option>
+                    <option value="Direct Mid-Mesh">Direct Mid-Mesh (Plastic Ribbed Injections)</option>
+                    <option value="Offset Mid-Surface">Offset Mid-Surface (Single Face Offset)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: MESHING & WASHER AUTOMATION -->
+        <div id="tab_mesh" class="tab-section">
+          <div class="section-header-row">
+            <h2 class="section-header-title">🕸️ Meshing Strategy &amp; Washer Controls</h2>
+            <p class="section-header-desc">Surface/Solid formulation, target sizing, and bolt hole washer construction.</p>
+          </div>
+
+          <div class="eng-form-grid">
+            <div class="eng-form-group">
+              <label class="eng-label" for="meshTypeSelect">Mesh Domain</label>
+              <select id="meshTypeSelect" class="form-select" data-bind="meshType">
+                <option value="2d_shell">2D Shell Surface Mesh (Thin Solids / Plates)</option>
+                <option value="3d_solid_tet">3D Solid Tetrahedral (Castings / Bulk Solids)</option>
+              </select>
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="elemTypeSelect">Element Formulation</label>
+              <select id="elemTypeSelect" class="form-select" data-bind="elemType">
+                <option value="mixed">Mixed (Quad-Dominant)</option>
+                <option value="quad">Pure Quads (Strict NVH/Aero)</option>
+                <option value="tria">Pure Trias (CFD/Thermal Skin)</option>
+                <option value="solid_tet">Solid Tetrahedral (Tet4/Tet10)</option>
+              </select>
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="elemOrderSelect">Element Order</label>
+              <select id="elemOrderSelect" class="form-select" data-bind="elemOrder">
+                <option value="1st Order (Linear)">1st Order (Linear)</option>
+                <option value="2nd Order (Parabolic)">2nd Order (Parabolic)</option>
+              </select>
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label">
+                Target Element Size <span class="unit-badge" data-unit-type="length">mm</span>
+                <span id="targetElemSizeRange_val" class="range-val">5.0</span>
+              </label>
+              <div class="range-group">
+                <input type="range" min="0.5" max="25.0" step="0.5" id="targetElemSizeRange" class="range-input" data-bind="targetElemSize">
+              </div>
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="minElemSizeInput">
+                Min Element Size <span class="unit-badge" data-unit-type="length">mm</span>
+              </label>
+              <input type="number" step="0.5" id="minElemSizeInput" class="form-control" data-bind="minElemSize">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="maxElemSizeInput">
+                Max Element Size <span class="unit-badge" data-unit-type="length">mm</span>
+              </label>
+              <input type="number" step="0.5" id="maxElemSizeInput" class="form-control" data-bind="maxElemSize">
+            </div>
+
+            <!-- Washer Controls -->
+            <div class="eng-form-group full-width">
+              <div class="eng-toggle-card">
+                <div class="eng-toggle-header">
+                  <span class="eng-toggle-title">⭕ Bolt Hole Washer Ring Construction</span>
+                  <label class="switch">
+                    <input type="checkbox" id="washerEnabledChk" data-bind="washerEnabled">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="eng-toggle-body">
+                  <div class="eng-form-grid">
+                    <div class="eng-form-group">
+                      <label class="eng-label" for="washerHoleMinInput">Min Hole Dia <span class="unit-badge" data-unit-type="length">mm</span></label>
+                      <input type="number" step="0.5" id="washerHoleMinInput" class="form-control" data-bind="washerHoleMin">
+                    </div>
+                    <div class="eng-form-group">
+                      <label class="eng-label" for="washerHoleMaxInput">Max Hole Dia <span class="unit-badge" data-unit-type="length">mm</span></label>
+                      <input type="number" step="1.0" id="washerHoleMaxInput" class="form-control" data-bind="washerHoleMax">
+                    </div>
+                    <div class="eng-form-group">
+                      <label class="eng-label" for="washerRingsInput">Washer Layers <span class="unit-badge">rings</span></label>
+                      <input type="number" min="1" max="5" id="washerRingsInput" class="form-control" data-bind="washerRings">
+                    </div>
+                    <div class="eng-form-group">
+                      <label class="eng-label" for="washerOffsetInput">Offset Ratio <span class="unit-badge">x rad</span></label>
+                      <input type="number" step="0.1" id="washerOffsetInput" class="form-control" data-bind="washerOffset">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: QUALITY CRITERIA & AUTO-FIXER -->
+        <div id="tab_quality" class="tab-section">
+          <div class="section-header-row">
+            <h2 class="section-header-title">🛡️ Quality Criteria &amp; Auto-Fixer Engine</h2>
+            <p class="section-header-desc">Solver quality check limits, compliance rigor scoring, and iterative smoothing.</p>
+          </div>
+
+          <!-- Professional CAE Quality Compliance Panel -->
+          <div class="quality-compliance-panel">
+            <div class="compliance-top-row">
+              <span class="compliance-title">📊 Quality Compliance Rigor Index</span>
+              <span id="gaugeScore" class="compliance-status-badge">88% PASS</span>
+            </div>
+            <div class="compliance-bar-track">
+              <div id="gaugeFill" class="compliance-bar-fill"></div>
+            </div>
+            <div class="compliance-grid">
+              <div class="compliance-item">
+                <span class="compliance-item-label">Max Warpage</span>
+                <span id="metricWarpage" class="compliance-item-val">&lt; 15.0°</span>
+              </div>
+              <div class="compliance-item">
+                <span class="compliance-item-label">Max Aspect Ratio</span>
+                <span id="metricAspect" class="compliance-item-val">&lt; 5.0</span>
+              </div>
+              <div class="compliance-item">
+                <span class="compliance-item-label">Min Jacobian</span>
+                <span id="metricJacobian" class="compliance-item-val">&gt; 0.60</span>
+              </div>
+              <div class="compliance-item">
+                <span class="compliance-item-label">Max Skew</span>
+                <span id="metricSkew" class="compliance-item-val">&lt; 50.0°</span>
+              </div>
+              <div class="compliance-item">
+                <span class="compliance-item-label">Critical Timestep</span>
+                <span id="metricTimestep" class="compliance-item-val">0.90 µs</span>
+              </div>
+              <div class="compliance-item">
+                <span class="compliance-item-label">Optimization Mode</span>
+                <span class="compliance-item-val" style="color:var(--accent-primary);">Multi-Pass</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="eng-form-grid">
+            <div class="eng-form-group">
+              <label class="eng-label" for="warpageLimitInput">Warpage Limit <span class="unit-badge">deg</span></label>
+              <input type="number" step="1.0" id="warpageLimitInput" class="form-control" data-bind="warpageLimit">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="aspectLimitInput">Aspect Ratio Limit</label>
+              <input type="number" step="0.5" id="aspectLimitInput" class="form-control" data-bind="aspectLimit">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="jacobianLimitInput">Min Jacobian</label>
+              <input type="number" step="0.05" id="jacobianLimitInput" class="form-control" data-bind="jacobianLimit">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="skewLimitInput">Max Skew <span class="unit-badge">deg</span></label>
+              <input type="number" step="1.0" id="skewLimitInput" class="form-control" data-bind="skewLimit">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="minTimestepInput">Min Timestep <span class="unit-badge" data-unit-type="time">sec</span></label>
+              <input type="number" step="0.0000001" id="minTimestepInput" class="form-control" data-bind="minTimestep">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="maxSmoothingPassesInput">Auto-Fix Passes <span class="unit-badge">iter</span></label>
+              <input type="number" min="1" max="20" id="maxSmoothingPassesInput" class="form-control" data-bind="maxSmoothingPasses">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: CONNECTORS & 1D ELEMENTS -->
+        <div id="tab_connectors" class="tab-section">
+          <div class="section-header-row">
+            <h2 class="section-header-title">🔗 Connectors, Spiders &amp; Welds</h2>
+            <p class="section-header-desc">Spotwelds, RBE2 rigid spiders, seam welds, and bolt preloads.</p>
+          </div>
+
+          <div class="eng-form-grid">
+            <div class="eng-form-group full-width">
+              <div class="eng-toggle-card">
+                <div class="eng-toggle-header">
+                  <span class="eng-toggle-title">⚡ Build Connectors Automatically</span>
+                  <label class="switch">
+                    <input type="checkbox" id="createConnectorsChk" data-bind="createConnectors">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="eng-toggle-body">
+                  <label class="eng-label" for="connectorTypeSelect">Connector Realization Type</label>
+                  <select id="connectorTypeSelect" class="form-select" data-bind="connectorType">
+                    <option value="Spotweld (Hexa Cluster Solid)">Spotweld (Hexa Cluster Solid - Crash)</option>
+                    <option value="RBE2 / RBE3 Spiders with CBUSH Dampers">RBE2 / RBE3 Spiders with CBUSH Dampers (NVH)</option>
+                    <option value="Continuous Seam Weld / CWELD / Fastener Preload">Continuous Seam Weld / CWELD (Durability)</option>
+                    <option value="CBUSH Fasteners with RBE2 Spiders">CBUSH Fasteners with RBE2 Spiders (Aerospace)</option>
+                    <option value="Kinematic Revolute / Spherical Joints with RBE2">Kinematic Revolute / Spherical Joints (MBD)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: MATERIALS & PROPERTIES -->
+        <div id="tab_props" class="tab-section">
+          <div class="section-header-row">
+            <h2 class="section-header-title">🧱 Materials, Properties &amp; Cards</h2>
+            <p class="section-header-desc">Solver material definitions (MAT1/MAT24/MAT8), unit-consistent physical properties, and property assignment.</p>
+          </div>
+
+          <!-- Quick Material Library Selector -->
+          <div class="material-library-card">
+            <div class="mat-lib-header">
+              <span>📚 Standard Engineering Material Library (Auto Unit-Converted)</span>
+            </div>
+            <div class="mat-lib-body">
+              <select id="materialLibrarySelect" class="form-select">
+                <option value="" disabled selected>🏷️ Pick Material to Auto-fill Properties (Steel, Aluminum, Titanium, Plastics...)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="eng-form-grid">
+            <div class="eng-form-group">
+              <label class="eng-label" for="materialCardInput">Material Card</label>
+              <input type="text" id="materialCardInput" class="form-control" data-bind="materialCard">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="propCardInput">Property Card</label>
+              <input type="text" id="propCardInput" class="form-control" data-bind="propCard">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="propThicknessInput">
+                Shell Thickness <span class="unit-badge" data-unit-type="length">mm</span>
+              </label>
+              <input type="number" step="0.1" id="propThicknessInput" class="form-control" data-bind="propThickness">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="matEInput">
+                Young's Modulus E <span class="unit-badge" data-unit-type="modulus">MPa</span>
+              </label>
+              <input type="text" id="matEInput" class="form-control" data-bind="matE" placeholder="e.g. 210000.0">
+              <div id="matEHelper" class="input-helper-note">💡 Equivalent: 210.0 GPa (210,000 MPa)</div>
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="matNuInput">
+                Poisson's Ratio Nu <span class="unit-badge">ratio</span>
+              </label>
+              <input type="text" id="matNuInput" class="form-control" data-bind="matNu" placeholder="0.30">
+            </div>
+
+            <div class="eng-form-group">
+              <label class="eng-label" for="matDensityInput">
+                Density <span class="unit-badge" data-unit-type="density">t/mm³</span>
+              </label>
+              <input type="text" id="matDensityInput" class="form-control" data-bind="matDensity" placeholder="e.g. 7.85e-9">
+              <div id="matDensityHelper" class="input-helper-note">💡 Equivalent: 7,850 kg/m³ (7.85 g/cm³)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 7: MODULAR PROC PIPELINE SELECTOR -->
+        <div id="tab_procs" class="tab-section">
+          <div class="section-header-row">
+            <h2 class="section-header-title">🧩 Modular Tcl Proc Pipeline Selector</h2>
+            <p class="section-header-desc">Toggle individual procedures ON/OFF to generate tailored automation packages.</p>
+          </div>
+
+          <div class="eng-form-grid single-col">
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_init_session</code> — Solver Profile &amp; Clean Session</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_init" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_import_and_clean_cad</code> — CAD Import &amp; Defeature</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_import" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_extract_midsurface</code> — Mid-surface Extraction</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_midsurf" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_mesh_surface_with_washers / solid_tet</code> — Mesher</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_mesh" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_fix_quality_criteria</code> — Multi-pass Quality Fix</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_quality" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_create_connectors_and_spiders</code> — Rigid Spiders</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_connectors" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_setup_materials_and_properties</code> — Material &amp; Props</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_props" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_export_solver_deck</code> — Solver Deck Export</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_export" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="eng-toggle-card">
+              <div class="eng-toggle-header">
+                <span class="eng-toggle-title"><code>hm_main_pipeline</code> — Master Pipeline Orchestrator</span>
+                <label class="switch">
+                  <input type="checkbox" data-proc-toggle="proc_main" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: Professional IDE-Style Tcl Editor -->
+    <section class="code-editor-container" aria-label="Generated Tcl Code Preview">
+      
+      <!-- Editor Header & Tabs -->
+      <div class="editor-header-bar">
+        <div class="editor-tabs-group">
+          <button class="view-mode-btn active" data-mode="full">hm_automation_run.tcl</button>
+          <button class="view-mode-btn" data-mode="procs_only">procs_only.tcl</button>
+          <button class="view-mode-btn" data-mode="batch_bat">run_batch.bat</button>
+          <button class="view-mode-btn" data-mode="batch_sh">run_batch.sh</button>
+        </div>
+
+        <div class="editor-actions-group">
+          <span id="codeStats" class="code-stats-pill">0 lines | 0 KB</span>
+        </div>
+      </div>
+
+      <!-- Code Editor Workspace -->
+      <div class="code-editor-scroll-area">
+        <div id="lineNumbers" class="code-line-numbers">1</div>
+        <pre class="code-content-pre"><code id="codeOutput"># Compiling Tcl code...</code></pre>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- 4. Bottom Status Strip & Diagnostics -->
+  <footer class="app-status-bar">
+    <div class="status-left">
+      <span class="status-indicator-dot"></span>
+      <span>HyperMesh Automation Engine: Ready</span>
+      <span style="color:var(--border-default);">|</span>
+      <span>Target: Altair HyperMesh (2017 - 2024)</span>
+    </div>
+    <div>
+      <span>Safe mark cleanups &amp; error trapping (<code>catch</code>) active</span>
+    </div>
+  </footer>
+
+  <!-- Preset Manager Modal -->
+  <div id="presetModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📁 CAE Preset Configuration Manager</h3>
+        <button id="presetModalClose" class="btn btn-outline btn-sm btn-icon-only">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; justify-content:space-between; margin-bottom:0.85rem;">
+          <button id="btnSaveNewPreset" class="btn btn-primary btn-sm">💾 Save Current Settings as Preset</button>
+          <div style="display:flex; gap:0.4rem;">
+            <button id="btnExportPresetsJSON" class="btn btn-secondary btn-sm">📤 Export JSON</button>
+            <button id="btnImportPresetsJSON" class="btn btn-secondary btn-sm">📥 Import JSON</button>
+            <input type="file" id="fileImportPresets" accept=".json" style="display:none;">
+          </div>
+        </div>
+
+        <div id="presetsListContainer">
+          <!-- Preset items injected by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Runner Modal -->
+  <div id="batchModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">⚡ Headless Batch Runner Script</h3>
+        <button id="batchModalClose" class="btn btn-outline btn-sm btn-icon-only">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.6rem;">
+          Execute your automation script in background mode using Altair's <code>hmbatch.exe</code> (compatible with HyperWorks 2017–2024):
+        </p>
+        <pre style="background:var(--code-bg); padding:0.75rem; border-radius:var(--radius-xs); border:1px solid var(--border-default); color:var(--accent-primary); font-family:'Fira Code', monospace; font-size:0.75rem; overflow-x:auto;"><code id="batchScriptPre"></code></pre>
+      </div>
+      <div class="modal-footer">
+        <button id="btnDownloadBatFile" class="btn btn-success btn-sm">📥 Download .bat Script</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom CAE Unit System Builder Modal -->
+  <div id="unitModal" class="modal-overlay">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Custom CAE Unit System Builder</h3>
+        <button id="unitModalClose" class="btn btn-outline btn-sm btn-icon-only">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.85rem;">
+          Define a domain-customized or solver-specific unit system. All physical material properties and geometry badges will automatically synchronize.
+        </p>
+
+        <!-- Quick Standard Template Fillers -->
+        <div class="unit-presets-bar">
+          <span style="font-size:0.72rem; font-weight:600; color:var(--text-muted);">Quick Templates:</span>
+          <button type="button" class="btn btn-secondary btn-sm btn-unit-preset" data-preset="mm_t_s_N">Automotive (mm-t-s-N)</button>
+          <button type="button" class="btn btn-secondary btn-sm btn-unit-preset" data-preset="mm_ms_kg_kN">Crash (mm-ms-kg-kN)</button>
+          <button type="button" class="btn btn-secondary btn-sm btn-unit-preset" data-preset="m_kg_s_N">SI (m-kg-s-N)</button>
+          <button type="button" class="btn btn-secondary btn-sm btn-unit-preset" data-preset="in_lb_s_lbf">US Aero (in-slinch-s-lbf)</button>
+        </div>
+
+        <div class="custom-units-grid">
+          <!-- Length -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitLength">Length [L]</label>
+            <select id="customUnitLength" class="form-select">
+              <option value="mm">mm (Millimeter)</option>
+              <option value="m">m (Meter)</option>
+              <option value="cm">cm (Centimeter)</option>
+              <option value="in">in (Inch)</option>
+              <option value="ft">ft (Foot)</option>
+            </select>
+          </div>
+
+          <!-- Mass -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitMass">Mass [M]</label>
+            <select id="customUnitMass" class="form-select">
+              <option value="t">t (Tonne = 1,000 kg)</option>
+              <option value="kg">kg (Kilogram)</option>
+              <option value="g">g (Gram)</option>
+              <option value="slinch">slinch (lbf·s²/in = 175.13 kg)</option>
+              <option value="slug">slug (lbf·s²/ft = 14.59 kg)</option>
+              <option value="lbm">lbm (Pound-Mass = 0.4536 kg)</option>
+            </select>
+          </div>
+
+          <!-- Time -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitTime">Time [T]</label>
+            <select id="customUnitTime" class="form-select">
+              <option value="s">s (Second)</option>
+              <option value="ms">ms (Millisecond = 10⁻³ s)</option>
+              <option value="µs">µs (Microsecond = 10⁻⁶ s)</option>
+              <option value="min">min (Minute = 60 s)</option>
+            </select>
+          </div>
+
+          <!-- Force -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitForce">Force [F]</label>
+            <select id="customUnitForce" class="form-select">
+              <option value="N">N (Newton)</option>
+              <option value="kN">kN (KiloNewton = 10³ N)</option>
+              <option value="mN">mN (MilliNewton = 10⁻³ N)</option>
+              <option value="lbf">lbf (Pound-Force)</option>
+              <option value="dyn">dyn (Dyne = 10⁻⁵ N)</option>
+            </select>
+          </div>
+
+          <!-- Stress / Modulus E -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitStress">Stress / Modulus E [F/L²]</label>
+            <select id="customUnitStress" class="form-select">
+              <option value="MPa">MPa (Megapascal = N/mm²)</option>
+              <option value="GPa">GPa (Gigapascal = kN/mm²)</option>
+              <option value="Pa">Pa (Pascal = N/m²)</option>
+              <option value="kPa">kPa (Kilopascal = mN/mm²)</option>
+              <option value="psi">psi (lbf/in²)</option>
+              <option value="ksi">ksi (1,000 psi)</option>
+              <option value="bar">bar (10⁵ Pa)</option>
+            </select>
+          </div>
+
+          <!-- Density -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitDensity">Density [M/L³]</label>
+            <select id="customUnitDensity" class="form-select">
+              <option value="t/mm³">t/mm³ (European NVH: Steel = 7.85e-9)</option>
+              <option value="kg/mm³">kg/mm³ (Crash Explicit: Steel = 7.85e-6)</option>
+              <option value="kg/m³">kg/m³ (SI Standard: Steel = 7850)</option>
+              <option value="g/cm³">g/cm³ (Laboratory: Steel = 7.85)</option>
+              <option value="slinch/in³">slinch/in³ (US FEA: Steel = 7.35e-4)</option>
+              <option value="lb/in³">lb/in³ (Weight Density: Steel = 0.284)</option>
+            </select>
+          </div>
+
+          <!-- Energy / Work -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitEnergy">Energy / Work [F·L]</label>
+            <select id="customUnitEnergy" class="form-select">
+              <option value="mJ">mJ (MilliJoule = N·mm)</option>
+              <option value="J">J (Joule = N·m = kN·mm)</option>
+              <option value="kJ">kJ (KiloJoule = kN·m)</option>
+              <option value="in·lbf">in·lbf (Inch-Pound Force)</option>
+              <option value="ft·lbf">ft·lbf (Foot-Pound Force)</option>
+            </select>
+          </div>
+
+          <!-- Gravity Acceleration -->
+          <div class="eng-form-group">
+            <label class="eng-label" for="customUnitGravity">Gravity Accel (1G)</label>
+            <select id="customUnitGravity" class="form-select">
+              <option value="9810 mm/s²">9810 mm/s² (mm, s)</option>
+              <option value="0.00981 mm/ms²">0.00981 mm/ms² (mm, ms)</option>
+              <option value="9.81 m/s²">9.81 m/s² (m, s)</option>
+              <option value="386.4 in/s²">386.4 in/s² (in, s)</option>
+              <option value="32.17 ft/s²">32.17 ft/s² (ft, s)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Consistency Verification Card -->
+        <div id="unitConsistencyBox" class="unit-consistency-card">
+          <div class="unit-consistency-header">
+            <span id="unitConsistencyIcon">✅</span>
+            <strong id="unitConsistencyTitle">FEA Consistent Unit Set (Newton's 2nd Law)</strong>
+          </div>
+          <div id="unitConsistencyDesc" class="unit-consistency-desc">
+            1 Force Unit (N) = 1 Mass Unit (t) × 1 Accel Unit (mm/s²). Derived stress N/mm² equals 1 MPa exactly.
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelCustomUnits" class="btn btn-outline btn-sm">Cancel</button>
+        <button id="btnApplyCustomUnits" class="btn btn-primary btn-sm">✓ Apply Custom Unit System</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- JavaScript Modules -->
+  <script src="js/subdomains.js"></script>
+  <script src="js/presets.js"></script>
+  <script src="js/templates.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
